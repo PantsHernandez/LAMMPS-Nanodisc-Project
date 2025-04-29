@@ -1,1 +1,1 @@
-# Project
+# Nanodisc simulation project
