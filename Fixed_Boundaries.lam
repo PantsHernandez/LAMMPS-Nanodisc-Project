@@ -1,0 +1,74 @@
+#Number of lipid particles.
+variable npart  equal 1300
+units		lj
+dimension 2
+atom_style	atomic
+boundary        f f p
+
+#Particles interact within a range of 6.
+neighbor        6   bin
+neigh_modify    every 1 delay 0 check yes
+
+#Create 2D box region. Also creates a smaller, safe region to place particles into to avoid wall overlaps.
+region box block -25 25 -25 25 -0.1 0.1
+region safe block -22 22 -22 22 -0.1 0.1
+
+#Create simulation with two particles.
+create_box 2 box
+
+#Enforce 2D.
+fix 2d  all enforce2d
+
+#Create fixed boundaries with soft repulsion to simulate the membrane scaffold protein.
+fix wallx  all wall/lj126 xlo EDGE 0.05 3.0 5.5
+fix wallx2 all wall/lj126 xhi EDGE 0.05 3.0 5.5
+fix wally  all wall/lj126 ylo EDGE 0.05 3.0 5.5
+fix wally2 all wall/lj126 yhi EDGE 0.05 3.0 5.5
+
+#Create lipid particles at random positions.
+create_atoms 1 random ${npart} 324523 safe
+
+#Create protein particles at pre-determined coordinates.
+create_atoms 2 single 0 0 0
+#create_atoms 2 single -5 0 0
+
+#Lipid particles have mass 1.  Protein particle has mass 5.
+mass   1	1
+mass   2	5
+
+#Hybrid lj/cut and soft interactions between particles.  Soft interactions used to create disorder in lipids.
+pair_style hybrid lj/cut 2.5 soft 15.0
+pair_coeff 1 1 lj/cut 1.0 1.0 2.5
+pair_coeff 1 2 soft 1.0 8.0
+pair_coeff 2 2 lj/cut 2.0 5.0 3.0
+
+#Velocity distribution of 1.0.
+velocity all create 1.0  34234123 dist gaussian
+
+#Energy minimization to remove overlapping particles.
+minimize 1e-4 1e-4 1000 1000
+reset_timestep 0
+
+#save images
+shell "mkdir img"
+shell "rm img/*"
+dump        img all  image  10000 img/t*.jpg    type type zoom 1.7
+dump_modify img backcolor white  boxcolor black
+dump_modify img adiam 2 5.0
+dump_modify img adiam 1 1.0
+dump_modify img pad 6
+
+#Fix integration.
+fix integrator all nve
+
+#Output time step, temperature, average kinetic and potential energy.
+thermo_style custom step temp  ke pe
+thermo_modify lost ignore
+thermo		100
+
+#Time step of integrator.
+timestep	0.0001
+
+#Number of steps to run.
+run		5000000
+
